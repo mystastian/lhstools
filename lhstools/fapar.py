@@ -65,7 +65,7 @@ class FAPAR(Benchmark):
         #side by side
         fapar_sim=self.get_sim(memberid)
         diff=self.obs-fapar_sim
-        plt.figure()
+        fig1=plt.figure()
         ax = plt.subplot(211,projection=projection)
         ax.coastlines()
         self.obs_mean.plot.pcolormesh(ax=ax,vmin=0,vmax=0.7,cmap=cm)
@@ -75,15 +75,15 @@ class FAPAR(Benchmark):
         fapar_sim.mean(dim='TIME').plot.pcolormesh(ax=ax,vmin=0,vmax=0.7,cmap=cm)
         ax.set_title('Control LPJ FAPAR, mean(09.1997-06.2006)')
         #Difference
-        plt.figure()
+        fig2=plt.figure()
         ax = plt.axes(projection=projection)
         ax.coastlines()
         diff.mean(dim='TIME').plot.pcolormesh(ax=ax)
         #Difference every month
-        fig,axs = plt.subplots(4,3,figsize=(16,16),subplot_kw={'projection':projection})
+        fig3,axs = plt.subplots(4,3,figsize=(16,16),subplot_kw={'projection':projection})
 
-        ax_cbar=fig.add_axes([0.92, 0.1, 0.02, 0.2])
-        fig.subplots_adjust(right=0.9)
+        ax_cbar=fig3.add_axes([0.92, 0.1, 0.02, 0.2])
+        fig3.subplots_adjust(right=0.9)
         axs=np.ndarray.flatten(axs)
         for m in range(12):
             axs[m].coastlines()
@@ -91,12 +91,13 @@ class FAPAR(Benchmark):
         plt.colorbar(im,cax=ax_cbar)
 
         #Zonal means
-        plt.figure()
+        fig3,ax=plt.subplots()
         self.obs_mean.mean(dim='LONGITUDE').plot(label='SeaWiFS')
         fapar_sim.mean(dim=['TIME','LONGITUDE']).plot(label='Simulation: {}'.format(memberid))
         ax.set_title('Zonal and temporal FAPAR mean')
         plt.legend(fancybox=True)
         self.obs_mean
+        return fig1,fig2,fig3
 
 
 

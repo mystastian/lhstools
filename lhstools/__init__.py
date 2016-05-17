@@ -1,7 +1,10 @@
+from .benchmark import Benchmark
 from .fapar import FAPAR
 from .emdi import EMDI
 from .uptake import Uptake
-from .benchmark import Benchmark
+from .globalveg import GlobalVeg
+from .globalsoil import GlobalSoil
+from .fluxnet import FLUXNET
 # Allow from lhstools import *
 # from os.path import dirname, basename, isfile
 # import glob

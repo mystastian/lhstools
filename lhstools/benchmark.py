@@ -3,6 +3,8 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import ast
+import os.path
+import matplotlib.pyplot as plt
 #Ensure py2&3 compatibiility...
 try:
     from configparser import SafeConfigParser
@@ -14,7 +16,7 @@ class Benchmark(object):
     def __init__(self,config_name='config.ini',init=False):
         "Initialization routine, if init=False tries to load certain files from existing files"
         #Import all parameters from the configuration file
-        self.import_config(config_name,['General','Advanced'],listnames=['parnames','ignoremembers','lunames'],intnames=['nsamples','setid_start'])
+        self.import_config(config_name,['General','Advanced'],listnames=['parnames','parlog','ignoremembers','lunames'],intnames=['nsamples','setid_start'])
         #Get all member names and ignore the ones specified in $ignoremembers
         self.members=[self.ensembleid+str(i).zfill(4)+self.lhsphase for i in range(self.setid_start,self.nsamples)]
         for imember in self.ignoremembers:
@@ -26,12 +28,16 @@ class Benchmark(object):
         #Create Pandas dataframe to store statistics about ensemble
         self.stats=pd.DataFrame(index=self.members)
         self.stats.index.name='member'
-        #Create Pandas df to store the parameter values for each member
+        #Check if saved parameter file exists, if not override init
+        if not init:
+            if not os.path.isfile(self.path2output+self.ensembleid+'_parameters.csv'):
+                init=True
         if init:
             self.para=pd.DataFrame(index=self.members)
             self.para.index.name='member'
             self.import_para(self.parnames)
             self.save_para()
+
         else:
             self.load_para()
 
@@ -80,7 +86,7 @@ class Benchmark(object):
         for member in self.members:
             error[member],var[member]=self.calc_stats(member)
             if self.verbose:
-                print("Member: {} , {}: {}, var:{}".format(member,self.metric,error[member],var[member]))
+                print("{} Member: {} , {}: {}, var:{}".format(self.name,member,self.metric,error[member],var[member]))
         #Add error to dataframe
         self.stats[self.name+'.'+self.metric]=error
         self.stats[self.name+'.var']=var
@@ -118,12 +124,12 @@ class Benchmark(object):
 
 #Error Metrics and Variance functions
 
-    def calc_metric(self,model,observation,weight):
+    def calc_metric(self,model,observation,weight,*args,**kwargs):
         "Dispatch method for error calculation"
         if self.metric=='RMSE':
-            return self.calc_rmse(model,observation,weight)
+            return self.calc_rmse(model,observation,weight,*args,**kwargs)
         elif self.metric=='MSE':
-            return self.calc_mse(model,observation,weight)
+            return self.calc_mse(model,observation,weight,*args,**kwargs)
         else:
             raise ValueError('{} is not a valid metric'.format(self.metric))
 
@@ -141,10 +147,10 @@ class Benchmark(object):
         else:
             raise ValueError('RMSE for {} not implemented'.format(type(model)))
 
-    def calc_mse(self,model,observation,weight):
+    def calc_mse(self,model,observation,weight,sigma_obs=None):
         "Returns the root mean square and variance of model-observation"
         #Case data is provided as xarray
-        if isinstance(model,xr.core.dataarray.DataArray) and isinstance(observation,xr.core.dataararay.DataArray):
+        if isinstance(model,xr.core.dataarray.DataArray) and isinstance(observation,xr.core.dataarray.DataArray):
             if weight is None:
                 raise ValueError('Non-Weighted MSE for xarray not implemented yet!')
             else:
@@ -155,13 +161,22 @@ class Benchmark(object):
                 meanerror=(error*weight).sum()/ws
                 var=np.float( ((error - meanerror)**2 *weight).sum()/ws)
         elif isinstance(model,pd.core.series.Series) and isinstance(observation,pd.core.series.Series):
-            if weight is None:
-                error=model-observation
-                se=error**2
-                mse=se.mean()
-                var=error.var()
+            if sigma_obs is None:
+                if weight is None:
+                    error=model-observation
+                    se=error**2
+                    mse=se.mean()
+                    var=error.var()
+                else:
+                    raise ValueError('Weighted MSE for pandas series not implemented yet!')
             else:
-                raise ValueError('Weighted MSE for pandas series not implemented yet!')
+                if weight is None:
+                    error=model-observation
+                    se=error**2
+                    mse=se.mean()
+                    var=sigma_obs**2
+                else:
+                    raise ValueError('Weighted MSE for pandas series not implemented yet!')
 
         else:
             raise ValueError('MSE for {} not implemented'.format(type(model)))
@@ -175,4 +190,33 @@ class Benchmark(object):
 #Plotting
 
     def plot_skill_vs_para(self):
-        pass
+        "Plots skill of a given target versus all the parameters"
+        npars=len(self.parnames)
+        fig,axs=plt.subplots(4,npars/4+1,figsize=(16,16))
+        axs=axs.flatten()
+        plt.suptitle('Ensemble: '+self.ensembleid+', Target:'+self.name+' - Parameters vs Skill',fontsize=20)
+        #Delte the axes not used
+        if npars%4 != 0:
+            for i in range(-4+npars%4,0):
+                axs[i].axis('off')
+
+        for i,pname in enumerate(self.parnames):
+            if pname in self.parlog:
+                axs[i].set_xscale('log')
+            axs[i].scatter(self.para[pname],self.stats[self.name+'.skill'],alpha=0.2)
+            axs[i].set_xlabel(pname)
+            axs[i].set_ylabel('skill [1]')
+        #Fix Suptitle
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.95)
+        return fig,axs
+
+
+    def plot_skill(self):
+        "Histogram +KDE of the skill"
+        fig,ax=plt.subplots(figsize=(12,8))
+        self.stats[self.name+'.skill'].plot(kind='kde',label='No restriction',ax=ax,bw_method=0.5)
+        ax.hist(self.stats[self.name+'.skill'].dropna(), fc='lightblue', histtype='stepfilled', alpha=0.3, normed=True)
+        ax.set_title('Ensemble: '+self.ensembleid+', Benchmark: '+self.name+' - skill distribution')
+        ax.set_xlabel('skill')
+        return fig,ax
