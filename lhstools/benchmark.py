@@ -13,7 +13,7 @@ except:
 
 class Benchmark(object):
     """"benchmark parent class"""
-    def __init__(self,config_name='config.ini',init=False):
+    def __init__(self,config_name='config_S12.ini',init=False):
         "Initialization routine, if init=False tries to load certain files from existing files"
         #Import all parameters from the configuration file
         self.import_config(config_name,['General','Advanced'],listnames=['parnames','parlog','ignoremembers','lunames'],intnames=['nsamples','setid_start'])
@@ -71,6 +71,7 @@ class Benchmark(object):
     def import_para(self,paranames):
         "Imports the parameter values from the parameter files of the ensemble"
         for member in self.members:
+            print member
             tempframe=pd.read_csv(self.path2run+member+'.lpj.parameter',delim_whitespace=True,index_col=0,usecols=[0,1],comment='#')
             for paraname in paranames:
                 self.para.loc[member,paraname]=float(tempframe.ix[paraname])
@@ -81,6 +82,7 @@ class Benchmark(object):
     def calc_skill(self):
         "Calculates the skill of all members"
         #error array
+        print len(self.members)
         error=pd.Series(index=self.members)
         var=pd.Series(index=self.members)
         for member in self.members:
@@ -103,7 +105,10 @@ class Benchmark(object):
     def read_ascii(self,fn):
         "Reads a transient ascii and returns it as a Pandas Dataframe"
         names=['Total']+self.lunames
-        return pd.read_csv(fn,delim_whitespace=True,header=None,index_col=0,names=names)
+        out=pd.read_csv(fn,delim_whitespace=True,header=None,index_col=0,names=names)
+        #Offset 1 year to account for "wrong" lpx output (1800.5 is rounded to 1801)
+        out.index=out.index-1
+        return out
 
     def save_stats(self):
         "saves stats DataFrame to self.ensembleid_self.name.csv"
@@ -192,12 +197,12 @@ class Benchmark(object):
     def plot_skill_vs_para(self):
         "Plots skill of a given target versus all the parameters"
         npars=len(self.parnames)
-        fig,axs=plt.subplots(4,npars/4+1,figsize=(16,16))
+        fig,axs=plt.subplots((npars-1)/4+1,4,figsize=(16,16))
         axs=axs.flatten()
         plt.suptitle('Ensemble: '+self.ensembleid+', Target:'+self.name+' - Parameters vs Skill',fontsize=20)
         #Delte the axes not used
         if npars%4 != 0:
-            for i in range(-4+npars%4,0):
+            for i in range((4-npars)%4,0):
                 axs[i].axis('off')
 
         for i,pname in enumerate(self.parnames):
@@ -219,4 +224,21 @@ class Benchmark(object):
         ax.hist(self.stats[self.name+'.skill'].dropna(), fc='lightblue', histtype='stepfilled', alpha=0.3, normed=True)
         ax.set_title('Ensemble: '+self.ensembleid+', Benchmark: '+self.name+' - skill distribution')
         ax.set_xlabel('skill')
+        ax.set_xlim([-0.05,1.05])
         return fig,ax
+
+    def plot_best(self):
+        "Plot member with highest skill"
+        best=self.stats[self.name+'.rank'].argmin()
+        try:
+            return self.plot_member(best)
+        except:
+            raise ValueError('plot_member method not available')
+
+    def plot_worst(self):
+        "Plot member with lowest skill"
+        worst=self.stats[self.name+'.rank'].argmax()
+        try:
+            return self.plot_member(worst)
+        except:
+            raise ValueError('plot_member method not available')

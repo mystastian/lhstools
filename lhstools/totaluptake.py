@@ -6,8 +6,8 @@ import cartopy.crs as ccrs
 import numpy as np
 from lhstools.utils import discrete_cmap
 
-class Uptake(Benchmark):
-    """Land uptake (Uptake+LUC emissions benchmark"""
+class TotalUptake(Benchmark):
+    """Land uptake (Uptake+LUC emissions benchmark over whole industrial period"""
     def __init__(self,config_name='config.ini',init=False,*args,**kwargs):
         #Shared parameters as attributes
         Benchmark.__init__(self,config_name,init,*args,**kwargs)
@@ -16,59 +16,29 @@ class Uptake(Benchmark):
         #Get observations
         self.get_obs()
         #name
-        self.name='uptake'
+        self.name='totaluptake'
 
     def get_obs(self):
         """get data (Land uptake) according to specified source
         """
-        #LUC-Land uptake in PgC/yr
-        if self.source=='Canadell':
-            # Contributions to accelerating atmospheric CO2 growth
-            # from economic activity, carbon intensity, and efficiency of natural sinks
-            # Canadell et. al. 2007
-            self.obs=pd.Series(index=['59-10','70-99','90-99','00-06'])
-            #LUC + Land uptake
-            self.obs['59-10']=-1.5+1.9
-            self.obs['70-99']=-1.5+2.0
-            self.obs['90-99']=-1.6+2.7
-            self.obs['00-06']=-1.5+2.8
-        elif self.source=='IPCC':
-            #IPCC 5th Assesment report chapter 6. page 486
-            #LUC + Land uptake
-            self.obs=pd.Series(index=['1980-1989','1990-1999','2000-2009','2002-2011'])
-            self.obs['1980-1989']=0.1
-            self.obs['1990-1999']=1.1
-            self.obs['2000-2009']=1.5
-            self.obs['2002-2011']=1.6
-            # self.obs['1750-2011']=-30
-        else:
-            raise ValueError('{} is not a valid uptake data source'.format(self.source))
+        self.obs=pd.Series(index=['1750-2009'])
+        self.obs['1750-2011']=-30
 
 
     def calc_stats(self,memberid):
         "Returns stats (error and variance) of a member id"
         #NEW: error of every month
         uptake=self.get_sim(memberid)
-        return Benchmark.calc_metric(self,uptake,self.obs,weight=None,sigma_obs=0.5)
+        return Benchmark.calc_metric(self,uptake,self.obs,weight=None,sigma_obs=45)
 
 
     def get_sim(self,memberid):
         "Returns the  land emissions from the totc ascii of a member as a pandas dataframe"
         fnmember=self.path2ascii+'trans_'+memberid+'.totc.out'
         totc=Benchmark.read_ascii(self,fnmember)['Total']
-        if self.source=='Canadell':
-            uptake=pd.Series(index=['59-10','70-99','90-99','00-06'])
-            uptake['59-10']=(totc[2010]-totc[1959])/(2010-1959+1)
-            uptake['70-99']=(totc[1999]-totc[1970])/(1999-1979+1)
-            uptake['90-99']=(totc[1999]-totc[1990])/(1999-1990+1)
-            uptake['00-06']=(totc[2006]-totc[2000])/(2006-2000+1)
-        elif self.source=='IPCC':
-            uptake=pd.Series(index=['1980-1989','1990-1999','2000-2009','2002-2011'])
-            uptake['1980-1989']=(totc[1989]-totc[1979])/10.
-            uptake['1990-1999']=(totc[1999]-totc[1989])/10.
-            uptake['2000-2009']=(totc[2009]-totc[1999])/10.
-            uptake['2002-2011']=(totc[2011]-totc[2001])/10.
-            # uptake['1750-2011']=(totc[2011]-totc[1801])
+        uptake=pd.Series(index=['1750-2009'])
+        #add the period 1801-1851 twice to get an estimate for 1750-1800
+        uptake['1750-2011']=(totc[2011]-totc[1801])+totc[1851]-totc[1801]
 
         return uptake
 
@@ -108,14 +78,12 @@ class Uptake(Benchmark):
         plt.tight_layout()
         return fig,ax
 
-    def plot_member(self,memberid,ax=None):
+    def plot_member(self,memberid):
         fnmember=self.path2ascii+'trans_'+memberid+'.totc.out'
         totc=Benchmark.read_ascii(self,fnmember)['Total']
-        if ax is None:
-            fig,ax=plt.subplots(figsize=(12,8))
-            ax.set_title('Land Atmosphere Flux, '+memberid)
-        (totc-totc.ix[1801]).plot(ax=ax)
-        return ax
+        fig,ax=plt.subplots(figsize=(12,8))
+        (totc-totc.ix[1801]).plot()
+        ax.set_title('Land Atmosphere Flux, '+memberid)
 
 
 

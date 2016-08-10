@@ -55,7 +55,10 @@ class FAPAR(Benchmark):
         luarea=xr.open_dataset(fnmember).lu_area[self.tconstraint]
         luarea['TIME']=self.timeaxis
         #Calculate simulated FAPAR
-        return (apar*luarea).sum(dim='landuse')/luarea.sum(dim='landuse')/self.par
+        # return (apar*luarea).sum(dim='landuse')/luarea.sum(dim='landuse')/self.par
+        # I think i dont need the luarea normalization (luarea*area should be the real area per grid cell)
+        return (apar*luarea).sum(dim='landuse',skipna=False)/self.par
+
 
     def plot_member(self,memberid):
         "Plots given member and observed fapar"
@@ -68,26 +71,31 @@ class FAPAR(Benchmark):
         fig1=plt.figure()
         ax = plt.subplot(211,projection=projection)
         ax.coastlines()
-        self.obs_mean.plot.pcolormesh(ax=ax,vmin=0,vmax=0.7,cmap=cm)
+        CS=self.obs_mean.plot.contourf(ax=ax,vmin=0,vmax=0.7,cmap='Reds',add_colorbar=False)
+        cbar = plt.colorbar(CS)
+        cbar.ax.set_ylabel(r'FAPAR [1]')
         ax.set_title('SeaWiFS FAPAR on 1x1 grid, mean(09.1997-06.2006)')
         ax = plt.subplot(212,projection=ccrs.PlateCarree())
         ax.coastlines()
-        fapar_sim.mean(dim='TIME').plot.pcolormesh(ax=ax,vmin=0,vmax=0.7,cmap=cm)
-        ax.set_title('Control LPJ FAPAR, mean(09.1997-06.2006)')
+        CS=fapar_sim.mean(dim='TIME').plot.contourf(ax=ax,vmin=0,vmax=0.7,cmap='Reds',add_colorbar=False)
+        cbar = plt.colorbar(CS)
+        cbar.ax.set_ylabel(r'FAPAR [1]')
+        ax.set_title('LPJ '+memberid+' FAPAR, mean(09.1997-06.2006)')
+        plt.tight_layout()
         #Difference
         fig2=plt.figure()
         ax = plt.axes(projection=projection)
         ax.coastlines()
-        diff.mean(dim='TIME').plot.pcolormesh(ax=ax)
+        ax.set_title('LPJ '+memberid+'Seawifs Fapar -  FAPAR, mean(09.1997-06.2006)')
+        diff.mean(dim='TIME').plot.contourf(ax=ax,levels=9,vmin=-0.3,vmax=0.3,cmap=cm)
         #Difference every month
-        fig3,axs = plt.subplots(4,3,figsize=(16,16),subplot_kw={'projection':projection})
-
-        ax_cbar=fig3.add_axes([0.92, 0.1, 0.02, 0.2])
-        fig3.subplots_adjust(right=0.9)
+        fig4,axs = plt.subplots(4,3,figsize=(16,16),subplot_kw={'projection':projection})
+        ax_cbar=fig4.add_axes([0.92, 0.1, 0.02, 0.2])
+        fig4.subplots_adjust(right=0.9)
         axs=np.ndarray.flatten(axs)
         for m in range(12):
             axs[m].coastlines()
-            im=diff.groupby('TIME.month').mean(dim='TIME').sel(month=m+1).plot.pcolormesh(ax=axs[m],vmin=-0.5,vmax=0.5,add_colorbar=False,cmap=cm)
+            im=diff.groupby('TIME.month').mean(dim='TIME').sel(month=m+1).plot.contourf(ax=axs[m],vmin=-0.3,vmax=0.3,add_colorbar=False,cmap=cm,levels=9)
         plt.colorbar(im,cax=ax_cbar)
 
         #Zonal means
@@ -97,7 +105,7 @@ class FAPAR(Benchmark):
         ax.set_title('Zonal and temporal FAPAR mean')
         plt.legend(fancybox=True)
         self.obs_mean
-        return fig1,fig2,fig3
+        return fig1,fig2,fig3,fig4
 
 
 

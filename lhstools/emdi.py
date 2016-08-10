@@ -35,10 +35,14 @@ class EMDI(Benchmark):
         fnmember=self.path2cdf+memberid+'.cdf'
         npp_cdf=xr.open_dataset(fnmember).npp
         luarea_cdf=xr.open_dataset(fnmember).lu_area
-        #Sum over Nat and Secd LU Class
-        npp_cdf=npp_cdf.sel(landuse=[1,2])
-        luarea=luarea_cdf.sel(landuse=[1,2])
-        npp_cdf=(npp_cdf*luarea).sum(dim='landuse')/luarea.sum(dim='landuse')
+        #Sum over Nat and Secd LU Class if gross LU
+        if 'Secondary' in self.lunames:
+            npp_cdf=npp_cdf.sel(landuse=[1,2])
+            luarea=luarea_cdf.sel(landuse=[1,2])
+            #Not sure if actually correct this way..
+            npp_cdf=(npp_cdf*luarea).sum(dim='landuse')/luarea.sum(dim='landuse')
+        else:
+            npp_cdf=npp_cdf.sel(landuse=1)
         #Time constraint
         tconstraint=(npp_cdf.TIME>1931.)*(npp_cdf.TIME<1997.)
         npp_cdf=npp_cdf[tconstraint].mean(dim='TIME')
@@ -63,7 +67,10 @@ class EMDI(Benchmark):
 
         #Plot map and extract simulation values
         fig1,ax = plt.subplots(figsize=(10,4),subplot_kw={'projection':ccrs.PlateCarree()})
-        npp_map.plot.contourf(cmap=cm,vmax=maxNPP,levels=levels)
+        CS=npp_map.plot.contourf(cmap=cm,vmax=maxNPP,levels=levels,add_colorbar=False)
+
+        cbar = plt.colorbar(CS)
+        cbar.ax.set_ylabel(r'NPP [gC m$^2$ yr$^{-1}$]')
         for coord,sNPP in self.obs['TNPP_C'].iteritems():
             color=dcm(int(np.floor((sNPP/maxNPP*levels))))
             ax.scatter(self.obs['LONG_DD'].ix[coord],self.obs['LAT_DD'].ix[coord],200,color=color,marker='.',edgecolor='k')
@@ -75,9 +82,12 @@ class EMDI(Benchmark):
         #Scatter Plot
         fig2,ax = plt.subplots()
         plt.scatter(x=npp_sites,y=self.obs_ave['TNPP_C'])
+        plt.scatter(x=npp_sites,y=self.obs_ave['TNPP_C'])
+        plt.scatter(x=npp_sites,y=self.obs_ave['TNPP_C'])
+
         ax.set_title('Simulated NPP ('+memberid+') vs EMDI Class A measurements')
-        ax.set_xlabel(r'NPP simulated [gc/m^2/yr]')
-        ax.set_ylabel(r'NPP observed (EMDI) [gc/m^2/yr]')
+        ax.set_xlabel(r'NPP simulated [gC m$^2$ yr$^{-1}$]')
+        ax.set_ylabel(r'NPP observed (EMDI) [gC m$^2$ yr$^{-1}$]')
         ax.plot([0,maxNPP],[0,maxNPP],color='k')
         ax.set_xlim(-5,maxNPP)
         ax.set_ylim(-5,maxNPP)

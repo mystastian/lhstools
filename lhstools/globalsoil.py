@@ -1,5 +1,6 @@
 from .benchmark import Benchmark
 import matplotlib.pyplot as plt
+import matplotlib
 import xarray as xr
 import pandas as pd
 import cartopy.crs as ccrs
@@ -49,26 +50,17 @@ class GlobalSoil(Benchmark):
     def plot_hist(self):
         "Pltos a histogram of all the vegetation for all members"
         #Import all the data
+        matplotlib.rcParams.update({'font.size': 14})
         soil=pd.DataFrame(index=self.obs.index)
         for member in self.members:
             soil[member]=self.get_sim(member)
         # ax=uptake.transpose().hist()
         fig,ax=plt.subplots(figsize=(12,8))
-        ax=soil.transpose().hist(ax=ax, fc='lightblue', histtype='stepfilled', alpha=0.3, normed=True,label='Norm. Histogram')
-        plt.suptitle('Soil Carbon')
+        ax=soil.transpose().hist(ax=ax, fc='lightblue', histtype='stepfilled', alpha=0.3, normed=True,label='Norm. Histogram',bins=20)
         #Add observations and kde
         soil.transpose()['SoilCarbon'].plot(kind='kde',label='KDE',ax=ax[0],bw_method=0.5,color='lightblue')
         ax[0].plot([self.obs['SoilCarbon'],self.obs['SoilCarbon']],ax[0].get_ylim(),color='red',linewidth=2,label='IPCC')
         ax[0].axvspan(self.obs['SoilCarbon']-self.sigma_obs,self.obs['SoilCarbon']+self.sigma_obs,color='red',alpha=0.3,label=r'IPCC $\pm \sigma$')
-        ax[0].legend(loc='upper left',fancybox=True,framealpha=0.8)
+        ax[0].legend(loc='upper right',fancybox=True,framealpha=0.8)
+        ax[0].set_xlabel('Soil Carbon [PgC]')
         return fig,ax
-
-
-
-
-
-
-
-
-
-

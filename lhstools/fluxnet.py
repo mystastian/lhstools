@@ -39,10 +39,14 @@ class FLUXNET(Benchmark):
         fnmember=self.path2cdf+memberid+'.cdf'
         npp_cdf=xr.open_dataset(fnmember).npp
         luarea_cdf=xr.open_dataset(fnmember).lu_area
-        #Sum over Nat and Secd LU Class
-        npp_cdf=npp_cdf.sel(landuse=[1,2])
-        luarea=luarea_cdf.sel(landuse=[1,2])
-        npp_cdf=(npp_cdf*luarea).sum(dim='landuse')/luarea.sum(dim='landuse')
+        #Sum over Nat and Secd LU Class if Gross LU
+        if 'Secondary' in self.lunames:
+            npp_cdf=npp_cdf.sel(landuse=[1,2])
+            luarea=luarea_cdf.sel(landuse=[1,2])
+            #Mean of Nat and Secd, not sure if this is correct
+            npp_cdf=(npp_cdf*luarea).sum(dim='landuse')/luarea.sum(dim='landuse')
+        else:
+            npp_cdf=npp_cdf.sel(landuse=1)
         #Time constraint
         tconstraint=(npp_cdf.TIME>1931.)*(npp_cdf.TIME<1997.)
         npp_cdf=npp_cdf[tconstraint].mean(dim='TIME')
